@@ -100,22 +100,37 @@
             df.uv.i <- do.call(cbind, lapply(df.uv.i, data.frame))
             df.uv.i <- as.data.frame(df.uv.i)
             values <- df.uv.i$items.index
-            values <- do.call(cbind, lapply(values, data.frame))
-            df.uv.i <- merge.data.frame(df.uv.i,
-                                           values,
-                                           by.x = "items.timestamp",
-                                           by.y = "timestamp")
-            df.uv.i <- subset(df.uv.i, 
-                              select=-c(items.index))
-            row.names(df.uv.i) <- letters[1:nrow(df.uv.i)]
-            df.uv <- rbind.data.frame(df.uv, df.uv.i)
-            row.names(df.uv) <- 1:nrow(df.uv)
-            df.uv <- dplyr::distinct(df.uv)
+            if (is.null(values) == TRUE ) {
+                  values <- as.data.frame(t(c(paste(datetime,
+                                                    '+08:00', 
+                                                    sep=""), "NA",
+                                              "NA", "NA")))
+                  colnames(values) <- c("items.timestamp", 
+                                        "items.update_timestamp",
+                                        "status",
+                                        "value")
+                  df.uv <- rbind.data.frame(df.uv,
+                                    values)
+                  
+            } else {
+                  values <- do.call(cbind, lapply(values, data.frame))
+                  df.uv.i <- merge.data.frame(df.uv.i,
+                                              values,
+                                              by.x = "items.timestamp",
+                                              by.y = "timestamp")
+                  df.uv.i <- subset(df.uv.i, 
+                                    select=-c(items.index))
+                  row.names(df.uv.i) <- letters[1:nrow(df.uv.i)]
+                  df.uv <- rbind.data.frame(df.uv, df.uv.i)
+                  row.names(df.uv) <- 1:nrow(df.uv)
+                  df.uv <- dplyr::distinct(df.uv)
+            }
             progress <- i/length(dates.1hr)*100
             print(paste("Progress:", progress, "% Completed"))
             if (i == length(dates.1hr)) {
-                  print("Data between", dates.1hr[1],"and",
-                        dates.1hr[length(dates.1hr), "in df.uv"])
+                  b <- dates.1hr[1]
+                  a <- dates.1hr[i]
+                  print(paste("Data between", b,"and", a, "in df.uv", sep = " "))
             }
       }
       proc.time() - ptm
