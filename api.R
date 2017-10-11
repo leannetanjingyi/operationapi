@@ -21,7 +21,7 @@
       uv <- "https://api.data.gov.sg/v1/environment/uv-index"
 
 
-      #Generate a list of datatime in the appropriate format 
+      #Generate a list of datatime in the appropriate format, and between dates  
       #(e.g. 2016-12-12T09:45:00)
       dates.1min <- as.vector(seq(as_datetime('2016-12-31 00:00:00 +08'), 
                              as_datetime(Sys.time()), 
@@ -31,9 +31,10 @@
                                   by = '5 min'))
       dates.1hr <- as.vector(seq(as_datetime('2016-12-31 00:00:00 +08'), 
                                  as_datetime(Sys.time()), 
-                                 by = '1 hr'))
+                                 by = '1 h'))
 
       ptm <- proc.time()
+      #Temperature
       df.temp <- as.data.frame(NULL)
       for (i in 1:length(dates.1min)){
             datetime <- as.character(format(as_datetime(dates.1min[i]), 
@@ -42,7 +43,7 @@
                             query = list("date_time"= URLdecode(datetime)),
                             add_headers(.headers = 
                                               c("api-key" = key)))
-            df.airtemp <- content(airtemp, as = "text", encoding = NULL)
+            df.airtemp <- content(airtemp, as = "text", encoding = "UTF-8")
             df.airtemp <- fromJSON(df.airtemp)
             df.airtemp <- do.call(cbind, lapply(df.airtemp, data.frame))
             df.airtemp <- as.data.frame(df.airtemp)
@@ -73,9 +74,48 @@
             row.names(df.airtemp) <- letters[1:nrow(df.airtemp)]
             df.temp <- rbind.data.frame(df.temp, df.airtemp)
             row.names(df.temp) <- 1:nrow(df.temp)
+            progress <- i/length(dates.1min)*100
+            print(paste("Progress:", progress, "% Completed"))
+            if (i == length(dates.1min)) {
+                  print("Data between", dates.1min[1],"and",
+                        dates.1min[length(dates.1min), "in df.temp"])
+            }
       }
       proc.time() - ptm
 
+      #write.csv(df.temp, "df.temp.test.csv")
 
-
-
+      #UV Index 
+      ptm <- proc.time()
+      df.uv <- as.data.frame(NULL)
+      for (i in 1:length(dates.1hr)){
+            datetime <- as.character(format(as_datetime(dates.1hr[i]), 
+                                            "%Y-%m-%dT%H:%M:%S"))
+             uv.i <-  GET(uv, 
+                            query = list("date_time"= URLdecode(datetime)),
+                            add_headers(.headers = 
+                                              c("api-key" = key)))
+            df.uv.i <- content(uv.i, as = "text", encoding = "UTF-8")
+            df.uv.i <- fromJSON(df.uv.i)
+            df.uv.i <- do.call(cbind, lapply(df.uv.i, data.frame))
+            df.uv.i <- as.data.frame(df.uv.i)
+            values <- df.uv.i$items.index
+            values <- do.call(cbind, lapply(values, data.frame))
+            df.uv.i <- merge.data.frame(df.uv.i,
+                                           values,
+                                           by.x = "items.timestamp",
+                                           by.y = "timestamp")
+            df.uv.i <- subset(df.uv.i, 
+                              select=-c(items.index))
+            row.names(df.uv.i) <- letters[1:nrow(df.uv.i)]
+            df.uv <- rbind.data.frame(df.uv, df.uv.i)
+            row.names(df.uv) <- 1:nrow(df.uv)
+            df.uv <- dplyr::distinct(df.uv)
+            progress <- i/length(dates.1hr)*100
+            print(paste("Progress:", progress, "% Completed"))
+            if (i == length(dates.1hr)) {
+                  print("Data between", dates.1hr[1],"and",
+                        dates.1hr[length(dates.1hr), "in df.uv"])
+            }
+      }
+      proc.time() - ptm
